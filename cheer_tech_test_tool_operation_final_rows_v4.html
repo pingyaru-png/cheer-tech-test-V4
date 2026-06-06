@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>テクニックテスト採点ツール 運用版</title>
+  <style>
+    :root {
+      --bg:#f7f7f8; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb;
+      --accent:#2563eb; --accent2:#eff6ff; --danger:#dc2626;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+    header { position:sticky; top:0; z-index:20; background:var(--card); border-bottom:1px solid var(--line); padding:14px 18px; }
+    h1 { font-size:20px; margin:0; font-weight:800; }
+    h2 { font-size:18px; margin:0 0 10px; }
+    main { max-width:1100px; margin:0 auto; padding:16px; }
+    .menu { display:grid; gap:10px; margin-bottom:16px; }
+    .menu button {
+      width:100%; border:1px solid var(--line); background:#fff; color:var(--ink);
+      border-radius:14px; padding:18px; font-size:20px; font-weight:800; cursor:pointer;
+    }
+    .menu button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .panel { display:none; }
+    .panel.active { display:block; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+    .grid { display:grid; gap:12px; }
+    .cols { grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+    label { display:block; margin:10px 0 5px; font-size:13px; color:var(--muted); font-weight:700; }
+    input, textarea, button { font:inherit; }
+    input, textarea {
+      width:100%; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fff; font-size:16px;
+    }
+    textarea { min-height:84px; }
+    .btn { border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:12px; padding:12px 16px; font-weight:800; cursor:pointer; }
+    .btn.secondary { background:#fff; color:var(--ink); border-color:var(--line); }
+    .btn.danger { background:var(--danger); border-color:var(--danger); }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .toolbar .btn { width:auto; }
+    .hint { color:var(--muted); font-size:13px; line-height:1.6; }
+
+    .warning { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:12px; padding:10px; font-size:13px; line-height:1.5; }
+    .wide { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; background:#fff; }
+    th,td { border-bottom:1px solid var(--line); padding:8px; text-align:left; font-size:14px; vertical-align:top; }
+    th { background:#f3f4f6; white-space:nowrap; }
+    .row-actions { display:flex; gap:6px; }
+    .row-actions .btn { padding:6px 8px; font-size:12px; }
+    .ac-wrap { position:relative; display:flex; gap:6px; }
+    .ac-wrap input { flex:1; }
+    .drop-btn {
+      width:48px; min-width:48px; border:1px solid var(--line); background:#fff; color:var(--ink);
+      border-radius:12px; font-size:18px; font-weight:800; cursor:pointer;
+    }
+    .ac-menu {
+      position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:100; background:#fff; border:1px solid var(--line);
+      border-radius:14px; box-shadow:0 10px 28px rgba(0,0,0,.16); max-height:280px; overflow:auto;
+    }
+    .ac-item { padding:13px; border-bottom:1px solid #f1f5f9; cursor:pointer; font-size:16px; }
+    .ac-item small { display:block; color:var(--muted); margin-top:3px; font-size:12px; }
+    .ac-item:hover, .ac-item.active { background:var(--accent2); }
+    .ac-empty { padding:13px; color:var(--muted); }
+
+
+    .pair-card { border:1px solid var(--line); border-radius:14px; padding:12px; margin:10px 0; background:#fff; }
+    .pair-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .pair-title { font-weight:800; color:var(--ink); }
+    .pair-remove { width:auto; border:1px solid var(--line); background:#fff; color:var(--danger); border-radius:999px; padding:6px 10px; cursor:pointer; font-weight:900; }
+
+    .quick-box { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 12px; }
+    .quick-btn {
+      width:auto; border:1px solid var(--line); background:#fff; color:var(--ink);
+      border-radius:999px; padding:10px 14px; font-weight:800; cursor:pointer;
+    }
+    .quick-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .quick-btn.grade { min-width:56px; }
+    .selected-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .chip {
+      display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#f8fafc;
+      border-radius:999px; padding:7px 10px; font-size:14px;
+    }
+    .chip button { border:0; background:transparent; color:var(--danger); padding:0; cursor:pointer; font-weight:900; }
+
+    @media (min-width:800px) {
+      .menu { grid-template-columns:repeat(4,1fr); }
+      .menu button { font-size:16px; padding:14px; }
+    }
+  </style>
+</head>
+<body>
+<header><h1>テクニックテスト採点ツール 運用版</h1></header>
+<main>
+  <nav class="menu">
+    <button class="active" data-panel="score">採点入力</button>
+    <button class="admin-only" data-panel="students">生徒マスタ</button>
+    <button class="admin-only" data-panel="ratings">評価基準マスタ</button>
+    <button class="admin-only" data-panel="skills">技名マスタ</button>
+    <button class="admin-only" data-panel="parts">部位マスタ</button>
+    <button class="admin-only" data-panel="contents">内容マスタ</button>
+    <button data-panel="export">CSV出力</button>
+    <button id="adminLogin" type="button">管理者</button>
+  </nav>
+
+  <section id="score" class="panel active">
+    <div class="card">
+      <h2>テスト設定</h2>
+      <div class="grid cols">
+        <div><label>テスト日</label><input id="scoreDate" type="date"></div>
+        <div><label>テスト名</label><input id="testName" placeholder="例：6月テクニックテスト"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>採点入力</h2>
+      <p class="hint">頭文字（ひらがな／英字）で検索　▼で全件表示</p>
+      <div class="warning">必須項目：生徒氏名・技名・評価。マスタ外の値は登録できません。同じ日の同じ生徒・同じ技名は1回だけ登録できます。</div>
+      <p class="hint">通常画面ではマスタ編集は表示されません。管理者のみ変更できます。</p>
+      <label>生徒ワンタップ選択</label>
+      <div class="quick-box" id="studentQuickBox"></div>
+      <div class="toolbar">
+        <button class="btn secondary" id="prevStudent" type="button">◀ 前の生徒</button>
+        <button class="btn secondary" id="nextStudent" type="button">次の生徒 ▶</button>
+      </div>
+
+      <div class="grid cols">
+        <div><label>生徒氏名 ★必須</label><div class="ac-wrap"><input id="studentInput" placeholder="例：は / h / haruka"><button class="drop-btn" data-target="studentInput">▼</button></div></div>
+        <div><label>技名 ★必須</label><div class="ac-wrap"><input id="skillInput" placeholder="例：そ / s / sokuten"><button class="drop-btn" data-target="skillInput">▼</button></div></div>
+        <div><label>評価 ★必須</label><div class="ac-wrap"><input id="ratingInput" placeholder="例：B+"><button class="drop-btn" data-target="ratingInput">▼</button></div><div class="quick-box" id="ratingQuickBox"></div></div>
+        <div style="grid-column:1/-1">
+          <label>コメント</label>
+          <p class="hint">1つの部位に対して、内容を複数選択できます。＋で部位セットを追加します。</p>
+          <div id="commentPairs"></div>
+          <div class="toolbar">
+            <button class="btn secondary" id="addCommentPair" type="button">＋ 部位を追加</button>
+          </div>
+        </div>
+      </div>
+      
+      <input id="templateInput" type="hidden" value="">
+      <label>自由メモ</label>
+      <textarea id="memoInput"></textarea>
+      <div class="toolbar">
+        <button class="btn" id="addScore">採点を追加</button>
+        <button class="btn secondary" id="clearScoreForm">入力欄クリア</button>
+      </div>
+    </div>
+
+    <div class="card wide">
+      <h2>採点一覧</h2>
+      <table id="scoreTable"></table>
+    </div>
+  </section>
+
+  <section id="students" class="panel admin-only"></section>
+  <section id="ratings" class="panel admin-only"></section>
+  <section id="skills" class="panel admin-only"></section>
+  <section id="parts" class="panel admin-only"></section>
+  <section id="contents" class="panel admin-only"></section>
+  <section id="templates" class="panel admin-only"></section>
+
+  <section id="export" class="panel">
+    <div class="card">
+      <h2>CSV出力</h2>
+      <div class="toolbar">
+        <button class="btn" id="downloadScores">採点CSVを出力</button>
+        <button class="btn secondary" id="downloadAllMasters">マスタCSVを一括出力</button>
+        <button class="btn danger" id="resetAll">全データ削除</button>
+      </div>
+      <p class="hint">CSVはExcel / Googleスプレッドシートで開けます。マスタCSVには読み方・検索キーも含まれます。</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const LS_KEY = "cheer_tech_test_v8";
+const defaultData = {
+  students: [{"name": "はるか", "grade": "6", "reading": "はるか", "search_key": "haruka h"}, {"name": "りの", "grade": "6", "reading": "りの", "search_key": "rino r"}, {"name": "まお", "grade": "6", "reading": "まお", "search_key": "mao m"}, {"name": "あやな", "grade": "6", "reading": "あやな", "search_key": "ayana a"}, {"name": "ゆめな", "grade": "5", "reading": "ゆめな", "search_key": "yumena y"}, {"name": "もも", "grade": "5", "reading": "もも", "search_key": "momo m"}, {"name": "ゆいか", "grade": "5", "reading": "ゆいか", "search_key": "yuika y"}, {"name": "かほ", "grade": "4", "reading": "かほ", "search_key": "kaho k"}, {"name": "しおり", "grade": "4", "reading": "しおり", "search_key": "shiori s"}, {"name": "あづみ", "grade": "4", "reading": "あづみ", "search_key": "azumi a"}, {"name": "めい", "grade": "4", "reading": "めい", "search_key": "mei m"}, {"name": "いちか", "grade": "4", "reading": "いちか", "search_key": "ichika i"}, {"name": "りこ", "grade": "4", "reading": "りこ", "search_key": "riko r"}, {"name": "つむぎ", "grade": "4", "reading": "つむぎ", "search_key": "tsumugi t"}, {"name": "しゅり", "grade": "4", "reading": "しゅり", "search_key": "shuri s"}, {"name": "とうわ", "grade": "3", "reading": "とうわ", "search_key": "touwa t"}, {"name": "りほこ", "grade": "2", "reading": "りほこ", "search_key": "rihoko r"}],
+  ratings: [{"name": "A+", "reading": "えーぷらす", "search_key": "aplus a+"}, {"name": "A", "reading": "えー", "search_key": "a"}, {"name": "A-", "reading": "えーまいなす", "search_key": "aminus a-"}, {"name": "B+", "reading": "びーぷらす", "search_key": "bplus b+"}, {"name": "B", "reading": "びー", "search_key": "b"}, {"name": "B-", "reading": "びーまいなす", "search_key": "bminus b-"}, {"name": "C+", "reading": "しーぷらす", "search_key": "cplus c+"}, {"name": "C", "reading": "しー", "search_key": "c"}, {"name": "C-", "reading": "しーまいなす", "search_key": "cminus c-"}, {"name": "D+", "reading": "でぃーぷらす", "search_key": "dplus d+"}, {"name": "D", "reading": "でぃー", "search_key": "d"}, {"name": "D-", "reading": "でぃーまいなす", "search_key": "dminus d-"}],
+  skills: [{"name": "キック", "reading": "きっく", "search_key": "kikku k kick"}, {"name": "シェネ", "reading": "しぇね", "search_key": "shene s"}, {"name": "ピケ", "reading": "ぴけ", "search_key": "pike p"}, {"name": "ピルエット", "reading": "ぴるえっと", "search_key": "piruetto p pirouette"}, {"name": "クッペターン", "reading": "くっぺたーん", "search_key": "kuppetan k"}, {"name": "フライアウェイ", "reading": "ふらいあうぇい", "search_key": "furaiauei f flyaway"}, {"name": "トゥータッチ", "reading": "とぅーたっち", "search_key": "tutacchi t toe touch toetouch"}, {"name": "ハードラー", "reading": "はーどらー", "search_key": "hadora h"}, {"name": "ジュッテ", "reading": "じゅって", "search_key": "jutte j"}, {"name": "セカンド", "reading": "せかんど", "search_key": "sekando s"}, {"name": "シェネセカ", "reading": "しぇねせか", "search_key": "sheneseka s"}, {"name": "側転", "reading": "そくてん", "search_key": "sokuten s"}, {"name": "フェッテ", "reading": "ふぇって", "search_key": "fette f fouette"}, {"name": "イリュージョン", "reading": "いりゅーじょん", "search_key": "iryujon i illusion"}, {"name": "Y字ターン", "reading": "わいじたーん", "search_key": "waijitan w yturn y"}, {"name": "Cジャン", "reading": "しーじゃん", "search_key": "shijan s cjan c"}],
+  parts: [{"name": "かお", "reading": "かお", "search_key": "kao k"}, {"name": "表情", "reading": "ひょうじょう", "search_key": "hyoujou h"}, {"name": "目線", "reading": "めせん", "search_key": "mesen m"}, {"name": "肩", "reading": "かた", "search_key": "kata k"}, {"name": "背中", "reading": "せなか", "search_key": "senaka s"}, {"name": "手首", "reading": "てくび", "search_key": "tekubi t"}, {"name": "腕", "reading": "うで", "search_key": "ude u"}, {"name": "軸", "reading": "じく", "search_key": "jiku j"}, {"name": "足", "reading": "あし", "search_key": "ashi a"}, {"name": "つま先", "reading": "つまさき", "search_key": "tsumasaki t"}, {"name": "骨盤", "reading": "こつばん", "search_key": "kotsuban k"}, {"name": "お尻", "reading": "おしり", "search_key": "oshiri o"}, {"name": "腰", "reading": "こし", "search_key": "koshi k"}],
+  contents: [{"name": "ズレ", "reading": "ずれ", "search_key": "zure z"}, {"name": "低い", "reading": "ひくい", "search_key": "hikui h"}, {"name": "高すぎ", "reading": "たかすぎ", "search_key": "takasugi t"}, {"name": "弱い", "reading": "よわい", "search_key": "yowai y"}, {"name": "崩れ", "reading": "くずれ", "search_key": "kuzure k"}, {"name": "早い", "reading": "はやい", "search_key": "hayai h"}, {"name": "遅い", "reading": "おそい", "search_key": "osoi o"}, {"name": "曲がれる", "reading": "まがれる", "search_key": "magareru m"}, {"name": "伸びて", "reading": "のびて", "search_key": "nobite n"}, {"name": "反る", "reading": "", "search_key": ""}, {"name": "硬い", "reading": "", "search_key": ""}, {"name": "スポット", "reading": "", "search_key": ""}, {"name": "るるべ", "reading": "", "search_key": ""}, {"name": "フラ付いてる", "reading": "", "search_key": ""}, {"name": "アーム弱い", "reading": "", "search_key": ""}, {"name": "膝を伸ばし、つま先まで意識する", "reading": "ひざをのばしつまさきまでいしきする", "search_key": "hiza nobasu tsumasaki h n t"}, {"name": "体幹を締めて軸を安定させる", "reading": "たいかんをしめてじくをあんていさせる", "search_key": "taikan jiku antei t j a"}, {"name": "スポットを早く取る", "reading": "すぽっとをはやくとる", "search_key": "spot hayaku toru s h"}],
+  templates: [{"name": "膝を伸ばし、つま先まで意識する", "reading": "ひざをのばしつまさきまでいしきする", "search_key": "hiza nobasu tsumasaki h n t"}],
+  currentDate: "",
+  testName: "",
+  scores: []
+};
+let data = load();
+
+const ADMIN_CODE = "pp2026";
+function enableAdmin() {
+  document.body.classList.add("admin");
+  sessionStorage.setItem("cheer_admin", "1");
+}
+function disableAdmin() {
+  document.body.classList.remove("admin");
+  sessionStorage.removeItem("cheer_admin");
+  document.querySelectorAll(".menu button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.querySelector('[data-panel="score"]').classList.add("active");
+  document.getElementById("score").classList.add("active");
+}
+function setupAdminMode() {
+  const url = new URL(location.href);
+  if (url.searchParams.get("admin") === ADMIN_CODE || sessionStorage.getItem("cheer_admin") === "1") enableAdmin();
+  document.getElementById("adminLogin").addEventListener("click", () => {
+    if (document.body.classList.contains("admin")) {
+      if (confirm("管理者モードを終了しますか？")) disableAdmin();
+      return;
+    }
+    const code = prompt("管理者パスコードを入力してください");
+    if (code === ADMIN_CODE) {
+      enableAdmin();
+      alert("管理者モードを表示しました。");
+    } else if (code !== null) {
+      alert("パスコードが違います。");
+    }
+  });
+}
+
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY));
+    if (!saved) return structuredClone(defaultData);
+    for (const k of Object.keys(defaultData)) if (saved[k] === undefined) saved[k] = structuredClone(defaultData[k]);
+    return saved;
+  } catch { return structuredClone(defaultData); }
+}
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(data)); refreshAll(); }
+function persist() { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function today() { return new Date().toISOString().slice(0,10); }
+function csvCell(v) { return '"' + String(v ?? "").replaceAll('"','""') + '"'; }
+function downloadCSV(filename, rows) {
+  const csv = "\ufeff" + rows.map(r => r.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById("scoreDate").value = data.currentDate || today();
+document.getElementById("testName").value = data.testName || "";
+document.getElementById("scoreDate").addEventListener("change", () => { data.currentDate = scoreDate.value; persist(); });
+document.getElementById("testName").addEventListener("input", () => { data.testName = testName.value; persist(); });
+
+document.querySelectorAll(".menu button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!btn.dataset.panel) return;
+    if (btn.classList.contains("admin-only") && !document.body.classList.contains("admin")) return;
+    closeAllMenus();
+    document.querySelectorAll(".menu button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.panel).classList.add("active");
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+});
+
+const kanaMap = {
+  "きゃ":"kya","きゅ":"kyu","きょ":"kyo","しゃ":"sha","しゅ":"shu","しょ":"sho","しぇ":"she",
+  "ちゃ":"cha","ちゅ":"chu","ちょ":"cho","ちぇ":"che","にゃ":"nya","にゅ":"nyu","にょ":"nyo",
+  "ひゃ":"hya","ひゅ":"hyu","ひょ":"hyo","みゃ":"mya","みゅ":"myu","みょ":"myo",
+  "りゃ":"rya","りゅ":"ryu","りょ":"ryo","ぎゃ":"gya","ぎゅ":"gyu","ぎょ":"gyo",
+  "じゃ":"ja","じゅ":"ju","じょ":"jo","じぇ":"je","びゃ":"bya","びゅ":"byu","びょ":"byo",
+  "ぴゃ":"pya","ぴゅ":"pyu","ぴょ":"pyo","ふぁ":"fa","ふぃ":"fi","ふぇ":"fe","ふぉ":"fo",
+  "てぃ":"ti","とぅ":"tu","でぃ":"di","どぅ":"du",
+  "あ":"a","い":"i","う":"u","え":"e","お":"o","か":"ka","き":"ki","く":"ku","け":"ke","こ":"ko",
+  "さ":"sa","し":"shi","す":"su","せ":"se","そ":"so","た":"ta","ち":"chi","つ":"tsu","て":"te","と":"to",
+  "な":"na","に":"ni","ぬ":"nu","ね":"ne","の":"no","は":"ha","ひ":"hi","ふ":"fu","へ":"he","ほ":"ho",
+  "ま":"ma","み":"mi","む":"mu","め":"me","も":"mo","や":"ya","ゆ":"yu","よ":"yo",
+  "ら":"ra","り":"ri","る":"ru","れ":"re","ろ":"ro","わ":"wa","を":"wo","ん":"n",
+  "が":"ga","ぎ":"gi","ぐ":"gu","げ":"ge","ご":"go","ざ":"za","じ":"ji","ず":"zu","ぜ":"ze","ぞ":"zo",
+  "だ":"da","ぢ":"ji","づ":"zu","で":"de","ど":"do","ば":"ba","び":"bi","ぶ":"bu","べ":"be","ぼ":"bo",
+  "ぱ":"pa","ぴ":"pi","ぷ":"pu","ぺ":"pe","ぽ":"po","ぁ":"a","ぃ":"i","ぅ":"u","ぇ":"e","ぉ":"o",
+  "ゃ":"ya","ゅ":"yu","ょ":"yo"
+};
+function toHira(s) {
+  return String(s || "").replace(/[ァ-ン]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)).toLowerCase();
+}
+function kanaToRomaji(s) {
+  const hira = toHira(s);
+  let out = "", i = 0;
+  while (i < hira.length) {
+    const ch = hira[i];
+    if (ch === "っ") {
+      const nxt = kanaMap[hira.slice(i+1,i+3)] || kanaMap[hira.slice(i+1,i+2)] || "";
+      if (nxt) out += nxt[0];
+      i++; continue;
+    }
+    if (ch === "ー" || ch === "-" || ch === "−" || ch === " ") { i++; continue; }
+    const two = hira.slice(i,i+2);
+    if (kanaMap[two]) { out += kanaMap[two]; i += 2; }
+    else { out += kanaMap[ch] || ch; i++; }
+  }
+  return out.toLowerCase();
+}
+function tokensForRecord(row) {
+  const vals = [row.name, row.reading, row.search_key];
+  let tokens = [];
+  vals.forEach(v => {
+    const raw = String(v || "").toLowerCase();
+    tokens.push(raw);
+    tokens.push(toHira(raw));
+    tokens.push(kanaToRomaji(raw));
+    raw.split(/\s+/).forEach(x => tokens.push(x));
+  });
+  return [...new Set(tokens.filter(Boolean))];
+}
+function queryTokens(q) {
+  const raw = String(q || "").trim().toLowerCase();
+  return [...new Set([raw, toHira(raw), kanaToRomaji(raw)].filter(Boolean))];
+}
+function rowsFor(key) { return data[key] || []; }
+function namesFor(key) { return rowsFor(key).map(x => x.name).filter(Boolean); }
+function listFor(key, q, all=false) {
+  const rows = rowsFor(key);
+  if (all || !String(q || "").trim()) return rows;
+  const qs = queryTokens(q);
+  return rows.map((row, idx) => {
+    const tokens = tokensForRecord(row);
+    let score = 99;
+    for (const query of qs) {
+      for (const t of tokens) {
+        if (t === query) score = Math.min(score, 0);
+        else if (t.startsWith(query)) score = Math.min(score, 1);
+        else if (t.includes(query)) score = Math.min(score, 2);
+      }
+    }
+    return {row, idx, score};
+  }).filter(x => x.score < 99)
+    .sort((a,b) => a.score - b.score || a.idx - b.idx)
+    .map(x => x.row);
+}
+function closeAllMenus() { document.querySelectorAll(".ac-menu").forEach(m => m.remove()); }
+function showMenu(input, key, all=false, onSelect=null) {
+  closeAllMenus();
+  const vals = listFor(key, input.value, all).slice(0, 100);
+  const wrap = input.parentElement;
+  const menu = document.createElement("div");
+  menu.className = "ac-menu";
+  menu.innerHTML = vals.length ? vals.map(row => `<div class="ac-item" data-v="${esc(row.name)}">${esc(row.name)}<small>${esc(row.reading || "")}　${esc(row.search_key || "")}</small></div>`).join("") : '<div class="ac-empty">候補なし</div>';
+  wrap.appendChild(menu);
+  menu.querySelectorAll(".ac-item").forEach(item => {
+    item.addEventListener("mousedown", e => {
+      e.preventDefault();
+      input.value = item.dataset.v;
+      if (onSelect) onSelect(item.dataset.v);
+      if (input.id === "ratingInput") renderRatingQuick();
+      if (input.id === "studentInput") renderStudentQuick();
+      closeAllMenus();
+    });
+  });
+}
+const acMap = { studentInput:"students", skillInput:"skills", ratingInput:"ratings", templateInput:"templates" };
+Object.entries(acMap).forEach(([id,key]) => {
+  const input = document.getElementById(id);
+  input.setAttribute("autocomplete", "off");
+  input.addEventListener("input", () => showMenu(input, key, false));
+  input.addEventListener("focus", () => {
+    if (!input.value.trim()) showMenu(input, key, true);
+    else showMenu(input, key, false);
+  });
+  input.addEventListener("blur", () => setTimeout(closeAllMenus, 120));
+});
+document.querySelectorAll(".drop-btn").forEach(btn => {
+  btn.addEventListener("mousedown", e => {
+    e.preventDefault();
+    const input = document.getElementById(btn.dataset.target);
+    input.focus();
+    showMenu(input, acMap[btn.dataset.target], true);
+  });
+});
+function inMaster(key, value) {
+  const v = String(value || "").trim();
+  return namesFor(key).includes(v);
+}
+function validateMasterField(label, key, inputId, required=false) {
+  const v = document.getElementById(inputId).value.trim();
+  if (!v && !required) return true;
+  if (!v && required) { alert(label + "は必須です。"); return false; }
+  if (!inMaster(key, v)) {
+    alert(label + "はマスタから選択してください。入力値: " + v);
+    const input = document.getElementById(inputId);
+    input.focus();
+    showMenu(input, key, false);
+    return false;
+  }
+  return true;
+}
+
+const masterDefs = {
+  students:{section:"students", title:"生徒マスタ", columns:[{key:"name",label:"生徒氏名",placeholder:"例：はるか"},{key:"grade",label:"学年",placeholder:"例：6"},{key:"reading",label:"読み方",placeholder:"例：はるか"},{key:"search_key",label:"検索キー",placeholder:"例：haruka h"}]},
+  ratings:{section:"ratings", title:"評価基準マスタ", columns:[{key:"name",label:"評価",placeholder:"例：B+"},{key:"reading",label:"読み方",placeholder:"例：びーぷらす"},{key:"search_key",label:"検索キー",placeholder:"例：bplus b+"}]},
+  skills:{section:"skills", title:"技名マスタ", columns:[{key:"name",label:"技名",placeholder:"例：側転"},{key:"reading",label:"読み方",placeholder:"例：そくてん"},{key:"search_key",label:"検索キー",placeholder:"例：sokuten s"}]},
+  parts:{section:"parts", title:"部位マスタ", columns:[{key:"name",label:"部位",placeholder:"例：表情"},{key:"reading",label:"読み方",placeholder:"例：ひょうじょう"},{key:"search_key",label:"検索キー",placeholder:"例：hyojo h"}]},
+  contents:{section:"contents", title:"内容マスタ", columns:[{key:"name",label:"内容",placeholder:"例：伸ばす"},{key:"reading",label:"読み方",placeholder:"例：のばす"},{key:"search_key",label:"検索キー",placeholder:"例：nobasu n"}]},
+  templates:{section:"templates", title:"（未使用）", columns:[{key:"name",label:"定型文",placeholder:"例：膝を伸ばす"},{key:"reading",label:"読み方",placeholder:"例：ひざをのばす"},{key:"search_key",label:"検索キー",placeholder:"例：hiza nobasu h n"}]}
+};
+function renderMaster(sectionId,title,key,columns) {
+  const sec = document.getElementById(sectionId);
+  const inputs = columns.map(c => `<div><label>${esc(c.label)}</label><input id="${sectionId}_${c.key}" placeholder="${esc(c.placeholder)}"></div>`).join("");
+  const rows = (data[key] || []).map((r,i) => `<tr>${columns.map(c=>`<td>${esc(r[c.key])}</td>`).join("")}<td class="row-actions"><button class="btn secondary" onclick="editMaster('${key}',${i})">編集</button><button class="btn danger" onclick="deleteMaster('${key}',${i})">削除</button></td></tr>`).join("");
+  sec.innerHTML = `<div class="card"><h2>${esc(title)}</h2><div class="grid cols">${inputs}</div><div class="toolbar"><button class="btn" onclick="addMaster('${sectionId}','${key}')">追加</button></div><p class="hint">名称・読み方・検索キーが検索対象です。</p></div><div class="card wide"><table><thead><tr>${columns.map(c=>`<th>${esc(c.label)}</th>`).join("")}<th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+window.addMaster = function(sectionId,key) {
+  const row = {};
+  masterDefs[key].columns.forEach(c => row[c.key] = document.getElementById(`${sectionId}_${c.key}`).value.trim());
+  if(!row.name) { alert("名称を入力してください"); return; }
+  if (inMaster(key, row.name)) { alert("同じ名称がすでにあります。"); return; }
+  data[key].push(row); save();
+}
+window.editMaster = function(key,i) {
+  const row = data[key][i];
+  masterDefs[key].columns.forEach(c => {
+    const v = prompt(`${c.label}を編集`, row[c.key] || "");
+    if(v !== null) row[c.key] = v.trim();
+  });
+  save();
+}
+window.deleteMaster = function(key,i) {
+  if(confirm("削除しますか？")) { data[key].splice(i,1); save(); }
+}
+
+document.getElementById("addScore").addEventListener("click", () => {
+  if (!validateMasterField("生徒氏名", "students", "studentInput", true)) return;
+  if (!validateMasterField("技名", "skills", "skillInput", true)) return;
+  if (!validateMasterField("評価", "ratings", "ratingInput", true)) return;
+  for (const p of commentPairsArr) {
+    if (p.part && !inMaster("parts", p.part)) {
+      alert("部位はマスタから選択してください。入力値: " + p.part);
+      return;
+    }
+    for (const c of p.contents) {
+      if (!inMaster("contents", c)) {
+        alert("内容はマスタから選択してください。入力値: " + c);
+        return;
+      }
+    }
+  }
+  if (!validateMasterField("コメント定型", "templates", "templateInput", false)) return;
+  const row = {
+    date: scoreDate.value, test_name: testName.value.trim(),
+    student: studentInput.value.trim(), skill: skillInput.value.trim(), rating: ratingInput.value.trim(),
+    part: commentPairsArr.filter(p => p.part || p.contents.length).map(p => p.part).join(" / "),
+    content: pairSummary(), template: templateInput.value.trim(),
+    memo: memoInput.value.trim()
+  };
+  const duplicate = data.scores.some(r =>
+    r.date === row.date &&
+    r.student === row.student &&
+    r.skill === row.skill
+  );
+  if (duplicate) {
+    alert("重複登録です。\n同じ日付・同じ生徒氏名・同じ技名は、すでに登録されています。");
+    return;
+  }
+  data.scores.push(row); save();
+  ["skillInput","ratingInput","templateInput","memoInput"].forEach(id => document.getElementById(id).value = "");
+  commentPairsArr = [{part:"", contents:[]}];
+  renderCommentPairs();
+  renderRatingQuick();
+});
+document.getElementById("clearScoreForm").addEventListener("click", () => {
+  ["studentInput","skillInput","ratingInput","templateInput","memoInput"].forEach(id => document.getElementById(id).value = "");
+  commentPairsArr = [{part:"", contents:[]}];
+  renderCommentPairs();
+  renderStudentQuick();
+  renderRatingQuick();
+});
+window.deleteScore = function(i) { if(confirm("削除しますか？")) { data.scores.splice(i,1); save(); } }
+
+function splitCommentPairs(row) {
+  const text = String(row.content || "");
+  const parts = text ? text.split(" | ").map(x => x.trim()).filter(Boolean) : [];
+  if (!parts.length) return [{ part: row.part || "", comment: "" }];
+  return parts.map(pair => {
+    const idx = pair.indexOf("：");
+    if (idx >= 0) return { part: pair.slice(0, idx), comment: pair.slice(idx + 1) };
+    return { part: "", comment: pair };
+  });
+}
+function expandedScoreRows() {
+  const out = [];
+  data.scores.forEach((r, scoreIndex) => {
+    splitCommentPairs(r).forEach((p, pairIndex) => {
+      out.push({
+        scoreIndex, pairIndex,
+        date: r.date,
+        test_name: r.test_name,
+        student: r.student,
+        skill: r.skill,
+        rating: r.rating,
+        part: p.part,
+        comment: p.comment,
+        memo: pairIndex === 0 ? (r.memo || "") : ""
+      });
+    });
+  });
+  return out;
+}
+
+function renderScores() {
+  const rows = expandedScoreRows().map(r => `<tr>
+    <td>${esc(r.date)}</td>
+    <td>${esc(r.test_name)}</td>
+    <td>${esc(r.student)}</td>
+    <td>${esc(r.skill)}</td>
+    <td>${esc(r.rating)}</td>
+    <td>${esc(r.part)}</td>
+    <td>${esc(r.comment)}</td>
+    <td>${esc(r.memo)}</td>
+    <td>${r.pairIndex === 0 ? `<button class="btn danger" onclick="deleteScore(${r.scoreIndex})">削除</button>` : ""}</td>
+  </tr>`).join("");
+  scoreTable.innerHTML = `<thead><tr><th>日付</th><th>テスト名</th><th>生徒氏名</th><th>技名</th><th>評価</th><th>部位</th><th>内容</th><th>メモ</th><th>操作</th></tr></thead><tbody>${rows}</tbody>`;
+}
+downloadScores.addEventListener("click", () => {
+  const rows = [["日付","テスト名","生徒氏名","技名","評価","部位","内容","自由メモ"],
+    ...expandedScoreRows().map(r => [r.date,r.test_name,r.student,r.skill,r.rating,r.part,r.comment,r.memo])];
+  downloadCSV("technique_test_scores.csv", rows);
+});
+downloadAllMasters.addEventListener("click", () => {
+  const rows = [["マスタ種別","名称","補足","読み方","検索キー"]];
+  data.students.forEach(r => rows.push(["生徒",r.name,r.grade,r.reading,r.search_key]));
+  data.ratings.forEach(r => rows.push(["評価基準",r.name,"",r.reading,r.search_key]));
+  data.skills.forEach(r => rows.push(["技名",r.name,"",r.reading,r.search_key]));
+  data.parts.forEach(r => rows.push(["部位",r.name,"",r.reading,r.search_key]));
+  data.contents.forEach(r => rows.push(["内容",r.name,"",r.reading,r.search_key]));
+  downloadCSV("technique_test_masters_v8.csv", rows);
+});
+resetAll.addEventListener("click", () => {
+  if(confirm("全データを初期状態に戻しますか？")) { localStorage.removeItem(LS_KEY); location.reload(); }
+});
+
+let commentPairsArr = [{part:"", contents:[]}];
+
+function setStudent(name) {
+  studentInput.value = name;
+  renderStudentQuick();
+}
+function currentStudentIndex() {
+  const names = data.students.map(x => x.name);
+  return Math.max(0, names.indexOf(studentInput.value.trim()));
+}
+function moveStudent(delta) {
+  const names = data.students.map(x => x.name);
+  if (!names.length) return;
+  let idx = names.indexOf(studentInput.value.trim());
+  if (idx < 0) idx = 0;
+  else idx = (idx + delta + names.length) % names.length;
+  studentInput.value = names[idx];
+  renderStudentQuick();
+}
+function renderStudentQuick() {
+  const current = studentInput.value.trim();
+  studentQuickBox.innerHTML = data.students.map(s => `<button type="button" class="quick-btn ${s.name === current ? 'active' : ''}" onclick="setStudent('${esc(s.name)}')">${esc(s.name)}</button>`).join("");
+}
+function renderRatingQuick() {
+  ratingQuickBox.innerHTML = data.ratings.map(r => `<button type="button" class="quick-btn grade ${r.name === ratingInput.value.trim() ? 'active' : ''}" onclick="ratingInput.value='${esc(r.name)}'; renderRatingQuick();">${esc(r.name)}</button>`).join("");
+}
+function addPair() {
+  commentPairsArr.push({part:"", contents:[]});
+  renderCommentPairs();
+}
+function removePair(idx) {
+  if (commentPairsArr.length <= 1) {
+    commentPairsArr = [{part:"", contents:[]}];
+  } else {
+    commentPairsArr.splice(idx, 1);
+  }
+  renderCommentPairs();
+}
+function setPairPart(idx, value) {
+  commentPairsArr[idx].part = value;
+  renderCommentPairs();
+}
+function addPairContent(idx, value) {
+  if (!value || !inMaster("contents", value)) return;
+  if (!commentPairsArr[idx].contents.includes(value)) commentPairsArr[idx].contents.push(value);
+  renderCommentPairs();
+}
+function removePairContent(idx, value) {
+  commentPairsArr[idx].contents = commentPairsArr[idx].contents.filter(x => x !== value);
+  renderCommentPairs();
+}
+function pairSummary() {
+  return commentPairsArr
+    .filter(p => p.part || p.contents.length)
+    .map(p => `${p.part || "部位未選択"}：${p.contents.join(" / ")}`)
+    .join(" | ");
+}
+function renderCommentPairs() {
+  commentPairs.innerHTML = commentPairsArr.map((p, idx) => `
+    <div class="pair-card">
+      <div class="pair-head">
+        <div class="pair-title">部位 ${idx + 1}</div>
+        <button type="button" class="pair-remove" onclick="removePair(${idx})">削除</button>
+      </div>
+      <label>部位</label>
+      <div class="ac-wrap">
+        <input id="pairPart_${idx}" value="${esc(p.part)}" placeholder="例：ひ / h / hyojo" autocomplete="off">
+        <button class="drop-btn" type="button" data-pair-part="${idx}">▼</button>
+      </div>
+      <label>内容（複数選択可）</label>
+      <div class="ac-wrap">
+        <input id="pairContent_${idx}" placeholder="例：の / n / nobasu" autocomplete="off">
+        <button class="drop-btn" type="button" data-pair-content="${idx}">▼</button>
+      </div>
+      <div class="selected-list">
+        ${p.contents.map(x => `<span class="chip">${esc(x)} <button type="button" onclick="removePairContent(${idx}, '${esc(x)}')">×</button></span>`).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  commentPairsArr.forEach((p, idx) => {
+    const part = document.getElementById(`pairPart_${idx}`);
+    const content = document.getElementById(`pairContent_${idx}`);
+    part.addEventListener("input", () => showMenu(part, "parts", false, val => setPairPart(idx, val)));
+    part.addEventListener("focus", () => showMenu(part, "parts", !part.value.trim(), val => setPairPart(idx, val)));
+    part.addEventListener("blur", () => setTimeout(() => {
+      if (part.value.trim()) commentPairsArr[idx].part = part.value.trim();
+      closeAllMenus();
+    }, 120));
+    content.addEventListener("input", () => showMenu(content, "contents", false, val => addPairContent(idx, val)));
+    content.addEventListener("focus", () => showMenu(content, "contents", !content.value.trim(), val => addPairContent(idx, val)));
+    content.addEventListener("blur", () => setTimeout(closeAllMenus, 120));
+  });
+
+  document.querySelectorAll("[data-pair-part]").forEach(btn => {
+    btn.addEventListener("mousedown", e => {
+      e.preventDefault();
+      const idx = Number(btn.dataset.pairPart);
+      const input = document.getElementById(`pairPart_${idx}`);
+      input.focus();
+      showMenu(input, "parts", true, val => setPairPart(idx, val));
+    });
+  });
+  document.querySelectorAll("[data-pair-content]").forEach(btn => {
+    btn.addEventListener("mousedown", e => {
+      e.preventDefault();
+      const idx = Number(btn.dataset.pairContent);
+      const input = document.getElementById(`pairContent_${idx}`);
+      input.focus();
+      showMenu(input, "contents", true, val => addPairContent(idx, val));
+    });
+  });
+}
+prevStudent.addEventListener("click", () => moveStudent(-1));
+nextStudent.addEventListener("click", () => moveStudent(1));
+addCommentPair.addEventListener("click", addPair);
+studentInput.addEventListener("input", renderStudentQuick);
+ratingInput.addEventListener("input", renderRatingQuick);
+
+function refreshAll() {
+  Object.entries(masterDefs).forEach(([key,def]) => renderMaster(def.section,def.title,key,def.columns));
+  renderScores();
+  renderStudentQuick();
+  renderRatingQuick();
+  renderCommentPairs();
+}
+setupAdminMode();
+refreshAll();
+</script>
+</body>
+</html>
